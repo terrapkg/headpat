@@ -59,12 +59,17 @@ func gh(req *http.Request) int {
 
 	var chls []chan string
 	for _, file := range files {
-		if !strings.HasSuffix(file, ".pat") {
+		if !strings.HasSuffix(file, "/pat") {
 			continue
 		}
 		chls = append(chls, dl("https://raw.githubusercontent.com/terrapkg/packages/" + resp.Ref + "/" + file))
 	}
-	// todo
+	for _, chl := range chls {
+		content := <-chl
+		stuff := strings.Split(content, " ")
+		project := stuff[0]
+		distro := stuff[1]
+	}
 
 	return 204
 }

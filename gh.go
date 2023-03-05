@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -9,6 +10,7 @@ import (
 )
 
 func dl(fullURLFile string) chan string {
+	l := log.New(os.Stdout, "[dwnload] " + fullURLFile + ": ", 0)
 	r := make(chan string)
 	go func() {
 		//? https://golangdocs.com/golang-download-files
@@ -21,11 +23,14 @@ func dl(fullURLFile string) chan string {
 		}
 		resp, err := client.Get(fullURLFile)
 		if err != nil {
-			log.Fatal(err)
+			l.Fatal(err)
 		}
+		l.Printf("got %d", resp.StatusCode)
 		defer resp.Body.Close()
-		var s []byte
-		resp.Body.Read(s)
+		s, err := io.ReadAll(resp.Body)
+		if err != nil {
+			l.Fatal(err)
+		}
 		r <- string(s)
 	}()
 	return r
@@ -62,13 +67,11 @@ func gh(req *http.Request) int {
 		if !strings.HasSuffix(file, "/pat") {
 			continue
 		}
-		chls = append(chls, dl("https://raw.githubusercontent.com/terrapkg/packages/" + resp.Ref + "/" + file))
+		chls = append(chls, dl("https://raw.githubusercontent.com/terrapkg/packages/"+resp.Ref+"/"+file))
 	}
 	for _, chl := range chls {
 		content := <-chl
-		stuff := strings.Split(content, " ")
-		project := stuff[0]
-		distro := stuff[1]
+		g_anitya_ch <- content
 	}
 
 	return 204

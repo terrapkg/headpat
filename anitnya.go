@@ -16,8 +16,10 @@ func anitnya_conn() {
 	dl1 := dl("https://raw.githubusercontent.com/fedora-infra/fedora-messaging/stable/configs/fedora-cert.pem")
 	dl2 := dl("https://raw.githubusercontent.com/fedora-infra/fedora-messaging/stable/configs/fedora-key.pem")
 	dl3 := dl("https://raw.githubusercontent.com/fedora-infra/fedora-messaging/stable/configs/cacert.pem")
-	cert := []byte(<-dl1)
-	pk := []byte(<-dl2)
+	cert, err := tls.X509KeyPair([]byte(<-dl1), []byte(<-dl2))
+	if err != nil {
+		l.Fatal(err)
+	}
 	cacert_ := []byte(<-dl3)
 
 	l.Println("cfg cacert")
@@ -27,10 +29,9 @@ func anitnya_conn() {
 	l.Println("conn")
 	conn, err := amqp.DialConfig("amqps://rabbitmq.fedoraproject.org/%2Fpublic_pubsub", amqp.Config{
 		TLSClientConfig: &tls.Config{
-			Certificates: []tls.Certificate{{
-				Certificate: [][]byte{cert},
-				PrivateKey:  [][]byte{pk},
-			}},
+			Certificates: []tls.Certificate{
+				cert,
+			},
 			RootCAs: certpool,
 			// InsecureSkipVerify:       true,
 			// PreferServerCipherSuites: true,
@@ -40,7 +41,7 @@ func anitnya_conn() {
 			// 	tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
 			// 	tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
 			// },
-		
+
 		},
 	})
 	if err != nil {

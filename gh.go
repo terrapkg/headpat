@@ -10,7 +10,7 @@ import (
 )
 
 func dl(fullURLFile string) chan string {
-	l := log.New(os.Stdout, "[dwnload] " + fullURLFile + ": ", 0)
+	l := log.New(os.Stdout, "[dwnload] "+fullURLFile+": ", 0)
 	r := make(chan string)
 	go func() {
 		//? https://golangdocs.com/golang-download-files

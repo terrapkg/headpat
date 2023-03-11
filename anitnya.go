@@ -9,6 +9,17 @@ import (
 	"github.com/streadway/amqp"
 )
 
+type FedoraAuth struct {
+}
+
+func (auth *FedoraAuth) Mechanism() string {
+	return "EXTERNAL"
+}
+
+func (auth *FedoraAuth) Response() string {
+	return "guest\nguest"
+}
+
 func anitnya_conn() {
 	l := log.New(os.Stdout, "[anitnya] ", 0)
 
@@ -20,28 +31,19 @@ func anitnya_conn() {
 	if err != nil {
 		l.Fatal(err)
 	}
-	cacert_ := []byte(<-dl3)
 
 	l.Println("cfg cacert")
 	certpool := x509.NewCertPool()
-	certpool.AppendCertsFromPEM(cacert_)
+	certpool.AppendCertsFromPEM([]byte(<-dl3))
 
 	l.Println("conn")
 	conn, err := amqp.DialConfig("amqps://rabbitmq.fedoraproject.org/%2Fpublic_pubsub", amqp.Config{
 		TLSClientConfig: &tls.Config{
-			Certificates: []tls.Certificate{
-				cert,
-			},
-			RootCAs: certpool,
-			// InsecureSkipVerify:       true,
-			// PreferServerCipherSuites: true,
-			// MinVersion:               tls.VersionTLS11,
-			// MaxVersion:               tls.VersionTLS11,
-			// CipherSuites: []uint16{
-			// 	tls.TLS_ECDHE_RSA_WITH_AES_128_CBC_SHA,
-			// 	tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-			// },
-
+			Certificates: []tls.Certificate{cert},
+			RootCAs:      certpool,
+		},
+		SASL: []amqp.Authentication{
+			&FedoraAuth{},
 		},
 	})
 	if err != nil {
@@ -53,28 +55,35 @@ func anitnya_conn() {
 		l.Fatal(err)
 	}
 	defer conn.Close()
+	// "org.release-monitoring.prod.anitya.project.version.update.v2",
+	for _, topic := range []string{"org.fedoraproject.prod.copr"} {
+		l.Println("xdcl " + topic)
+		err = ch.ExchangeDeclare(topic, "topic", true, false, false, false, nil)
+		if err != nil {
+			l.Fatal(err)
+		}
+	}
 
-	l.Println("ch consume")
-	msgs, err := ch.Consume(
-		"", //os.Getenv("QUEUE_UUID"),
-		"",
-		true, // autoAck
-		false,
-		false,
-		false,
-		nil,
-	)
+	qname := os.Getenv("QUEUE_UUID")
+	l.Println("qdcl " + qname)
+	_, err = ch.QueueDeclare(qname, true, false, true, false, nil)
 	if err != nil {
 		l.Fatal(err)
 	}
 
-	forever := make(chan bool)
+	l.Println("ch consume")
+	msgs, err := ch.Consume(qname, "", true, false, false, false, nil)
+	if err != nil {
+		l.Fatal(err)
+	}
+
+	forever := make(chan bool, 1)
 	go func() {
 		for d := range msgs {
 			l.Printf("| %s\n", d.Body)
 		}
 	}()
 
-	log.Println("conn ok")
+	l.Println("conn ok nya~")
 	<-forever
 }
